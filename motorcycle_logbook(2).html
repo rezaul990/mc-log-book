@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>দৈনিক মোটর সাইকেল লগ বই</title>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --orange: #E8500A;
+  --orange-dark: #B33D07;
+  --orange-light: #FFF0E8;
+  --gray-dark: #3A3A3A;
+  --gray-mid: #6B6B6B;
+  --gray-light: #F5F5F2;
+  --border: #D0CEC8;
+  --white: #FFFFFF;
+  --danger: #E24B4A;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --radius: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Hind Siliguri', 'Noto Sans Bengali', sans-serif;
+  background: #EDEBE6;
+  color: var(--gray-dark);
+  min-height: 100vh;
+}
+
+.topbar {
+  background: var(--orange);
+  color: #fff;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(232,80,10,0.35);
+}
+.topbar-title { font-size: 18px; font-weight: 700; }
+.topbar-sub { font-size: 12px; opacity: .8; }
+
+.main { max-width: 980px; margin: 0 auto; padding: 24px 16px 60px; }
+
+.card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.card-header {
+  background: var(--gray-dark);
+  color: #fff;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.badge {
+  background: var(--orange);
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.card-body { padding: 18px; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+@media(max-width:640px){ .grid2,.grid3{grid-template-columns:1fr} }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 11px; font-weight: 600; color: var(--gray-mid); text-transform: uppercase; letter-spacing: .5px; }
+.field label span { color: var(--orange); }
+.field input {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  background: var(--gray-light);
+  color: var(--gray-dark);
+  transition: border-color .2s, box-shadow .2s;
+  width: 100%;
+}
+.field input:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(232,80,10,.12); background: #fff; }
+
+/* PHOTO UPLOAD */
+.upload-box {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--gray-light);
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  overflow: hidden;
+  position: relative;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 20px;
+}
+.upload-box:hover { border-color: var(--orange); background: var(--orange-light); }
+.upload-box.filled { border: 2px solid var(--orange); padding: 12px; }
+.upload-box.filled .upload-placeholder { display: none; }
+.upload-box input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload-box.filled input[type=file] { display: none; }
+.rotate-controls {
+  display: none;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-bottom: 8px;
+}
+.upload-box.filled .rotate-controls { display: flex; }
+.rotate-btn {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--gray-dark);
+  cursor: pointer;
+  transition: border-color .2s, background .2s, color .2s;
+}
+.rotate-btn:hover { border-color: var(--orange); background: var(--orange-light); color: var(--orange-dark); }
+.upload-placeholder { pointer-events: none; }
+.up-icon { font-size: 36px; display: block; margin-bottom: 4px; }
+.up-title { font-size: 13px; font-weight: 700; color: var(--gray-dark); }
+.up-hint { font-size: 11px; color: var(--gray-mid); }
+.preview-img { width: auto; max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; transform-origin: center center; margin: 0 auto; }
+.remove-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 28px; height: 28px;
+  font-size: 14px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  z-index: 10;
+}
+.upload-box.filled .remove-btn { display: flex; }
+.photo-caption {
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  padding: 6px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--gray-mid);
+  margin-top: 6px;
+}
+
+/* TRIP ROW */
+.trip-row {
+  background: var(--gray-light);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  transition: box-shadow .2s;
+}
+.trip-row:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+.trip-row-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.trip-num {
+  background: var(--orange);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.trip-label { font-size: 13px; font-weight: 600; color: var(--gray-dark); flex: 1; }
+.del-btn {
+  background: none;
+  border: 1.5px solid var(--danger);
+  color: var(--danger);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .2s, color .2s;
+}
+.del-btn:hover { background: var(--danger); color: #fff; }
+
+.km-calc {
+  background: var(--orange-light);
+  border: 1px solid #F4C4A0;
+  border-radius: 7px;
+  padding: 8px 12px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--orange-dark);
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.km-calc strong { font-weight: 700; }
+
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 7px;
+  transition: transform .15s, box-shadow .15s;
+}
+.btn:active { transform: scale(.97); }
+.btn-add { background: var(--gray-dark); color: #fff; }
+.btn-add:hover { background: #111; }
+.btn-generate {
+  background: var(--orange);
+  color: #fff;
+  width: 100%;
+  justify-content: center;
+  font-size: 15px;
+  padding: 14px;
+  margin-bottom: 4px;
+}
+.btn-generate:hover { background: var(--orange-dark); box-shadow: 0 4px 16px rgba(232,80,10,.4); }
+.btn-clear { background: #fff; color: var(--danger); border: 1.5px solid var(--danger); }
+.btn-clear:hover { background: var(--danger); color: #fff; }
+.btn-dl { background: #1D9E75; color: #fff; flex:1; justify-content:center; padding:11px; }
+.btn-dl:hover { background: #0F6E56; }
+.btn-pr2 { background: var(--gray-dark); color: #fff; flex:1; justify-content:center; padding:11px; }
+.btn-pr2:hover { background: #111; }
+
+#preview-section { display: none; margin-top: 24px; }
+#preview-section.visible { display: block; }
+.preview-bar {
+  background: var(--gray-dark);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+#log-preview-wrap {
+  background: #fff;
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 16px;
+  overflow-x: auto;
+  box-shadow: var(--shadow);
+}
+
+/* ═══ PRINTABLE OUTPUT ═══ */
+#printable {
+  background: #fff;
+  font-family: 'Hind Siliguri', 'Noto Sans Bengali', Arial, sans-serif;
+}
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  min-width: 680px;
+}
+.log-table td {
+  border: 1px solid #888;
+  padding: 5px 7px;
+  vertical-align: middle;
+}
+.log-title-row td {
+  background: #4A4A4A;
+  color: #fff;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 10px;
+}
+.log-meta-row td { background: #F0F0EC; font-size: 11px; }
+.log-header-row td {
+  background: #E8500A;
+  color: #fff;
+  text-align: center;
+  font-weight: 600;
+  font-size: 10.5px;
+  padding: 5px 4px;
+  line-height: 1.4;
+}
+.log-data-row:nth-child(even) td { background: #FAFAF8; }
+.purpose-cell { color: #E8500A; font-weight: 600; }
+.bill-cell { font-weight: 700; text-align: right; }
+.num-cell { text-align: center; }
+
+/* ODOMETER STRIP IN OUTPUT */
+.odo-strip {
+  display: flex;
+  border: 1px solid #888;
+  border-top: none;
+}
+.odo-box { flex: 1; display: flex; flex-direction: column; }
+.odo-box:first-child { border-right: 1px solid #888; }
+.odo-lbl {
+  background: #3A3A3A;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  padding: 6px 8px;
+  letter-spacing: .4px;
+}
+.odo-photo-wrap {
+  background: #1a1a1a;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+.odo-photo-wrap img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 240px;
+  object-fit: contain;
+  display: block;
+  transform-origin: center center;
+}
+.odo-no-photo { color: #888; font-size: 13px; text-align: center; padding: 30px 20px; }
+
+@media print {
+  body > *:not(#print-root) { display: none !important; }
+  #print-root { display: block !important; position: fixed; top:0;left:0;width:100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="font-size:28px">🏍️</div>
+  <div>
+    <div class="topbar-title">দৈনিক মোটর সাইকেল লগ বই</div>
+    <div class="topbar-sub">Daily Motorcycle Log Generator — Walton Hi-Tech Industries PLC</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- USER LOGIN -->
+  <div class="card">
+    <div class="card-header">🔐 User Login</div>
+    <div class="card-body">
+      <div class="grid2" style="margin-bottom:12px">
+        <div class="field"><label>User</label><input id="user-email" disabled value="Not signed in"></div>
+        <div class="field"><label>Status</label><input id="user-status" disabled value="Please sign in with Google"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-add" id="login-btn" type="button" onclick="signInWithGoogle()">Login with Google</button>
+        <button class="btn btn-clear" id="logout-btn" type="button" onclick="signOutUser()" style="display:none">Logout</button>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:#555; line-height:1.5;">
+        Login with Google to load and save your Vehicle & Officer information and BDT per KM rate into Firebase.
+      </div>
+    </div>
+  </div>
+
+  <!-- VEHICLE INFO -->
+  <div class="card">
+    <div class="card-header">🚗 Vehicle &amp; Officer Information</div>
+    <div class="card-body">
+      <div class="grid3" style="margin-bottom:14px">
+        <div class="field"><label>মডেল <span>*</span></label><input id="model" value="Yamaha FZs (Blue) 150"></div>
+        <div class="field"><label>ইঞ্জিন নং <span>*</span></label><input id="engine" value="G3L5E0301023"></div>
+        <div class="field"><label>রেজিস্ট্রেশন নং <span>*</span></label><input id="regno" value="CHATTA METRO-LA-19-6023"></div>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>Name</label><input id="empname" value="Md. Rezaul Karim"></div>
+        <div class="field"><label>Designation</label><input id="desig" value="Sr. Assistant Director"></div>
+        <div class="field"><label>Department</label><input id="dept" value="Regional Credit Manager"></div>
+      </div>
+      <div class="grid2" style="margin-top:14px">
+        <div class="field"><label>BDT per KM</label><input id="rate" type="number" step="0.10" min="0" value="8.50" inputmode="decimal" lang="en"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn btn-pr2" id="save-settings-btn" type="button" onclick="saveUserSettings()" disabled>Save Settings</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ODOMETER PHOTOS -->
+  <div class="card">
+    <div class="card-header">📷 Odometer Photos (Upload Opening &amp; Closing Meter)</div>
+    <div class="card-body">
+      <div class="grid2">
+
+        <!-- OPENING -->
+        <div>
+          <div class="photo-caption">🟢 Opening Meter — শুরুর রিডিং</div>
+          <div class="upload-box" id="box-open">
+            <div class="upload-placeholder">
+              <span class="up-icon">📸</span>
+              <div class="up-title">Opening KM Photo</div>
+              <div class="up-hint">Click or tap to upload</div>
+            </div>
+            <input type="file" accept="image/*" onchange="loadPhoto(this,'box-open','img-open')">
+            <button class="remove-btn" onclick="removePhoto(event,'box-open','img-open','file-open-inp')">✕</button>
+            <img id="img-open" class="preview-img" src="" alt="" style="display:none; transform: rotate(0deg);">
+            <div class="rotate-controls">
+              <button type="button" class="rotate-btn" onclick="rotatePhoto('img-open', -90)">↺ Rotate Left</button>
+              <button type="button" class="rotate-btn" onclick="rotatePhoto('img-open', 90)">↻ Rotate Right</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CLOSING -->
+        <div>
+          <div class="photo-caption">🔴 Closing Meter — শেষের রিডিং</div>
+          <div class="upload-box" id="box-close">
+            <div class="upload-placeholder">
+              <span class="up-icon">📸</span>
+              <div class="up-title">Closing KM Photo</div>
+              <div class="up-hint">Click or tap to upload</div>
+            </div>
+            <input type="file" accept="image/*" onchange="loadPhoto(this,'box-close','img-close')">
+            <button class="remove-btn" onclick="removePhoto(event,'box-close','img-close','file-close-inp')">✕</button>
+            <img id="img-close" class="preview-img" src="" alt="" style="display:none; transform: rotate(0deg);">
+            <div class="rotate-controls">
+              <button type="button" class="rotate-btn" onclick="rotatePhoto('img-close', -90)">↺ Rotate Left</button>
+              <button type="button" class="rotate-btn" onclick="rotatePhoto('img-close', 90)">↻ Rotate Right</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- TRIP ENTRIES -->
+  <div class="card">
+    <div class="card-header">
+      📋 Trip Entries
+      <span class="badge" id="trip-count-badge">0 trips</span>
+    </div>
+    <div class="card-body">
+      <div id="trips-container"></div>
+      <div class="btn-row">
+        <button class="btn btn-add" onclick="addTrip()">＋ Add Trip Row</button>
+        <button class="btn btn-clear" onclick="clearAll()">✕ Clear All</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-generate" onclick="generateLog()">⚙️ Generate Log Sheet Preview</button>
+
+  <div class="card">
+    <div class="card-header">📥 Saved Log Export</div>
+    <div class="card-body">
+      <div class="grid3" style="margin-bottom:10px">
+        <div class="field"><label>Date</label><input id="filter-date" type="date"></div>
+        <div class="field"><label>From</label><input id="filter-from" type="date"></div>
+        <div class="field"><label>To</label><input id="filter-to" type="date"></div>
+      </div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div class="field"><label>Month</label><input id="filter-month" type="month"></div>
+        <div class="field"><label>&nbsp;</label><div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-dl export-btn" type="button" onclick="exportLogs('date','excel')" disabled>Excel by Date</button>
+          <button class="btn btn-pr2 export-btn" type="button" onclick="exportLogs('range','excel')" disabled>Excel by Range</button>
+        </div></div>
+      </div>
+      <div class="btn-row" style="margin-top:4px">
+        <button class="btn btn-dl export-btn" type="button" onclick="exportLogs('month','excel')" disabled>Excel by Month</button>
+        <button class="btn btn-pr2 export-btn" type="button" onclick="exportLogs('date','pdf')" disabled>PDF by Date</button>
+        <button class="btn btn-dl export-btn" type="button" onclick="exportLogs('range','pdf')" disabled>PDF by Range</button>
+        <button class="btn btn-pr2 export-btn" type="button" onclick="exportLogs('month','pdf')" disabled>PDF by Month</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="preview-section">
+    <div class="preview-bar">
+      <span>📄 Preview — Ready to Export</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-dl" onclick="downloadImage()">⬇️ Save as Image (JPG)</button>
+        <button class="btn btn-pr2" onclick="printLog()">🖨️ Print</button>
+      </div>
+    </div>
+    <div id="log-preview-wrap">
+      <div id="printable"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="print-root" style="display:none"></div>
+
+<script>
+let tripCount = 0;
+
+function todayStr() {
+  const d = new Date();
+  return String(d.getDate()).padStart(2,'0') + '.' +
+         String(d.getMonth()+1).padStart(2,'0') + '.' +
+         String(d.getFullYear()).slice(-2);
+}
+
+/* ── Firebase login & storage ── */
+const firebaseConfig = {
+  apiKey: 'AIzaSyBQqFnI951dU-NX1AU_rR-zjCy7DEEGNIM',
+  authDomain: 'my-all-projects-d3d6f.firebaseapp.com',
+  projectId: 'my-all-projects-d3d6f',
+  storageBucket: 'my-all-projects-d3d6f.firebasestorage.app',
+  messagingSenderId: '2183565403',
+  appId: '1:2183565403:web:596c83f816f8457193ef7e'
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+function updateAuthUI(user) {
+  const emailInput = document.getElementById('user-email');
+  const statusInput = document.getElementById('user-status');
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const saveBtn = document.getElementById('save-settings-btn');
+  if (user) {
+    emailInput.value = user.email || user.displayName || 'Signed in';
+    statusInput.value = 'Signed in';
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-flex';
+    saveBtn.disabled = false;
+  } else {
+    emailInput.value = 'Not signed in';
+    statusInput.value = 'Please sign in with Google';
+    loginBtn.style.display = 'inline-flex';
+    logoutBtn.style.display = 'none';
+    saveBtn.disabled = true;
+  }
+}
+
+auth.onAuthStateChanged(user => {
+  updateAuthUI(user);
+  if (user) {
+    loadUserData(user.uid);
+  }
+  updateExportUI(user);
+});
+
+function updateExportUI(user) {
+  document.querySelectorAll('.export-btn').forEach(btn => {
+    btn.disabled = !user;
+  });
+}
+
+function signInWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => {
+    alert('Login failed: ' + err.message);
+  });
+}
+
+function signOutUser() {
+  auth.signOut().catch(err => {
+    alert('Logout failed: ' + err.message);
+  });
+}
+
+async function loadUserData(uid) {
+  try {
+    const doc = await db.collection('users').doc(uid).get();
+    if (!doc.exists) return;
+    const data = doc.data();
+    document.getElementById('model').value = data.model || '';
+    document.getElementById('engine').value = data.engine || '';
+    document.getElementById('regno').value = data.regno || '';
+    document.getElementById('empname').value = data.empname || '';
+    document.getElementById('desig').value = data.desig || '';
+    document.getElementById('dept').value = data.dept || '';
+    document.getElementById('rate').value = data.rate !== undefined ? data.rate : 8.50;
+  } catch (err) {
+    console.error('Load user data failed', err);
+  }
+}
+
+function parseDateString(text) {
+  if (!text) return null;
+  const parts = text.split('.');
+  if (parts.length >= 2) {
+    let day = parseInt(parts[0], 10);
+    let month = parseInt(parts[1], 10) - 1;
+    let year = parseInt(parts[2] || '', 10);
+    if (!year) {
+      const currentYear = new Date().getFullYear();
+      year = currentYear;
+    } else if (year < 100) {
+      year += 2000;
+    }
+    const date = new Date(year, month, day);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  return null;
+}
+
+function buildTripRows() {
+  return Array.from(document.querySelectorAll('.trip-row')).map(row => {
+    const dateText = row.querySelector('.t-date').value || '';
+    const dateObject = parseDateString(dateText);
+    const dateIso = dateObject ? dateObject.toISOString().slice(0,10) : '';
+    const start  = parseFloat(row.querySelector('.t-start').value)  || 0;
+    const end    = parseFloat(row.querySelector('.t-end').value)    || 0;
+    const excess = parseFloat(row.querySelector('.t-excess').value) || 0;
+    const total  = Math.max(0, end - start);
+    const net    = Math.max(0, total - excess);
+    const rate   = parseFloat(document.getElementById('rate').value) || 8.50;
+    return {
+      date: dateText,
+      dateIso,
+      plaza: row.querySelector('.t-plaza').value || '',
+      from: row.querySelector('.t-from').value || '',
+      to: row.querySelector('.t-to').value || '',
+      purpose: row.querySelector('.t-purpose').value || '',
+      start, end, total, excess, net,
+      bill: +(net * rate).toFixed(2)
+    };
+  });
+}
+
+async function saveLogToFirestore(record) {
+  const user = auth.currentUser;
+  if (!user) return;
+  try {
+    await db.collection('users').doc(user.uid).collection('logs').add(record);
+  } catch (err) {
+    console.error('Save log failed', err);
+  }
+}
+
+async function exportLogs(filterType, outputType) {
+  const user = auth.currentUser;
+  if (!user) { alert('Please sign in with Google to export saved logs.'); return; }
+  const logs = await querySavedLogs(filterType);
+  if (!logs.length) { alert('No saved logs found for this filter.'); return; }
+  const fileLabel = filterType === 'date' ? document.getElementById('filter-date').value || 'selected-date' :
+                    filterType === 'range' ? `${document.getElementById('filter-from').value || 'from'}_to_${document.getElementById('filter-to').value || 'to'}` :
+                    document.getElementById('filter-month').value || 'selected-month';
+  const filename = `motorcycle_logs_${filterType}_${fileLabel}.${outputType === 'excel' ? 'xlsx' : 'pdf'}`;
+  if (outputType === 'excel') {
+    downloadLogsExcel(logs, filename);
+  } else {
+    await downloadLogsPdf(logs, filename, filterType);
+  }
+}
+
+async function querySavedLogs(filterType) {
+  const user = auth.currentUser;
+  if (!user) return [];
+  let query = db.collection('users').doc(user.uid).collection('logs').orderBy('generatedAt', 'desc');
+  const dateValue = document.getElementById('filter-date').value;
+  const fromValue = document.getElementById('filter-from').value;
+  const toValue = document.getElementById('filter-to').value;
+  const monthValue = document.getElementById('filter-month').value;
+  const toTimestamp = date => firebase.firestore.Timestamp.fromDate(date);
+
+  if (filterType === 'date' && dateValue) {
+    const start = new Date(dateValue + 'T00:00:00');
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    query = query.where('generatedAt', '>=', toTimestamp(start)).where('generatedAt', '<', toTimestamp(end));
+  } else if (filterType === 'range' && fromValue && toValue) {
+    const start = new Date(fromValue + 'T00:00:00');
+    const end = new Date(toValue + 'T00:00:00');
+    end.setDate(end.getDate() + 1);
+    query = query.where('generatedAt', '>=', toTimestamp(start)).where('generatedAt', '<', toTimestamp(end));
+  } else if (filterType === 'month' && monthValue) {
+    const [year, month] = monthValue.split('-').map(Number);
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 1);
+    query = query.where('generatedAt', '>=', toTimestamp(start)).where('generatedAt', '<', toTimestamp(end));
+  } else {
+    alert('Please select valid filter criteria.');
+    return [];
+  }
+
+  const snapshot = await query.get();
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+function downloadLogsExcel(logs, filename) {
+  const rows = [];
+  logs.forEach(log => {
+    log.trips.forEach(trip => {
+      rows.push({
+        GeneratedDate: log.generatedIso || '',
+        Model: log.model || '',
+        Engine: log.engine || '',
+        RegNo: log.regno || '',
+        Name: log.empname || '',
+        Designation: log.desig || '',
+        Department: log.dept || '',
+        Rate: log.rate || '',
+        TripDate: trip.date || '',
+        TripDateIso: trip.dateIso || '',
+        Plaza: trip.plaza || '',
+        From: trip.from || '',
+        To: trip.to || '',
+        Purpose: trip.purpose || '',
+        StartKM: trip.start || 0,
+        EndKM: trip.end || 0,
+        TotalKM: trip.total || 0,
+        NetKM: trip.net || 0,
+        ExcessKM: trip.excess || 0,
+        Bill: trip.bill || 0
+      });
+    });
+  });
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Logs');
+  XLSX.writeFile(workbook, filename);
+}
+
+async function downloadLogsPdf(logs, filename, filterType) {
+  const content = document.createElement('div');
+  content.style.width = '1024px';
+  content.style.padding = '24px';
+  content.style.background = '#ffffff';
+  content.innerHTML = `<div style="font-size:18px;font-weight:700;margin-bottom:12px">Motorcycle Log Sheet Export (${filterType})</div>`;
+  logs.forEach(log => {
+    const header = document.createElement('div');
+    header.innerHTML = `<div style="margin-bottom:10px;font-size:13px;font-weight:600">Generated: ${log.generatedIso || ''} — ${log.model || ''} / ${log.empname || ''}</div>`;
+    content.appendChild(header);
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.innerHTML = `<thead><tr>
+      <th style="border:1px solid #444;padding:4px">Trip Date</th>
+      <th style="border:1px solid #444;padding:4px">Plaza</th>
+      <th style="border:1px solid #444;padding:4px">From</th>
+      <th style="border:1px solid #444;padding:4px">To</th>
+      <th style="border:1px solid #444;padding:4px">Purpose</th>
+      <th style="border:1px solid #444;padding:4px">Start</th>
+      <th style="border:1px solid #444;padding:4px">End</th>
+      <th style="border:1px solid #444;padding:4px">Total</th>
+      <th style="border:1px solid #444;padding:4px">Net</th>
+      <th style="border:1px solid #444;padding:4px">Bill</th>
+    </tr></thead>`;
+    const body = document.createElement('tbody');
+    log.trips.forEach(trip => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td style="border:1px solid #444;padding:4px">${trip.date || ''}</td>
+        <td style="border:1px solid #444;padding:4px">${trip.plaza || ''}</td>
+        <td style="border:1px solid #444;padding:4px">${trip.from || ''}</td>
+        <td style="border:1px solid #444;padding:4px">${trip.to || ''}</td>
+        <td style="border:1px solid #444;padding:4px">${trip.purpose || ''}</td>
+        <td style="border:1px solid #444;padding:4px">${trip.start || 0}</td>
+        <td style="border:1px solid #444;padding:4px">${trip.end || 0}</td>
+        <td style="border:1px solid #444;padding:4px">${trip.total || 0}</td>
+        <td style="border:1px solid #444;padding:4px">${trip.net || 0}</td>
+        <td style="border:1px solid #444;padding:4px">${trip.bill || 0}</td>
+      `;
+      body.appendChild(row);
+    });
+    table.appendChild(body);
+    content.appendChild(table);
+    const spacer = document.createElement('div');
+    spacer.style.height = '18px';
+    content.appendChild(spacer);
+  });
+  document.body.appendChild(content);
+  const canvas = await html2canvas(content, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff' });
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new window.jspdf.jsPDF('l', 'pt', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = canvas.width;
+  const imgHeight = canvas.height;
+  const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+  pdf.addImage(imgData, 'PNG', 0, 0, imgWidth * ratio, imgHeight * ratio);
+  pdf.save(filename);
+  document.body.removeChild(content);
+}
+
+function buildLogPayload(rate, totalBill, openSrc, closeSrc, openRot, closeRot) {
+  return {
+    generatedAt: firebase.firestore.Timestamp.fromDate(new Date()),
+    generatedIso: new Date().toISOString(),
+    model: document.getElementById('model').value,
+    engine: document.getElementById('engine').value,
+    regno: document.getElementById('regno').value,
+    empname: document.getElementById('empname').value,
+    desig: document.getElementById('desig').value,
+    dept: document.getElementById('dept').value,
+    rate,
+    totalBill,
+    openingRotation: openRot,
+    closingRotation: closeRot,
+    trips: buildTripRows()
+  };
+}
+
+async function generateLog() {
+  const model   = document.getElementById('model').value;
+  const engine  = document.getElementById('engine').value;
+  const regno   = document.getElementById('regno').value;
+  const empname = document.getElementById('empname').value;
+  const desig   = document.getElementById('desig').value;
+  const dept    = document.getElementById('dept').value;
+
+  const rows = document.querySelectorAll('.trip-row');
+  if (!rows.length) { alert('Please add at least one trip entry.'); return; }
+
+  const rate = parseFloat(document.getElementById('rate').value) || 8.50;
+  let tripRows = '';
+  let totalBill = 0;
+
+  rows.forEach(row => {
+    const date    = row.querySelector('.t-date').value;
+    const plaza   = row.querySelector('.t-plaza').value;
+    const from    = row.querySelector('.t-from').value;
+    const to      = row.querySelector('.t-to').value;
+    const purpose = row.querySelector('.t-purpose').value;
+    const start   = parseFloat(row.querySelector('.t-start').value)  || 0;
+    const end     = parseFloat(row.querySelector('.t-end').value)    || 0;
+    const excess  = parseFloat(row.querySelector('.t-excess').value) || 0;
+    const total   = Math.max(0, end - start);
+    const net     = Math.max(0, total - excess);
+    const bill    = net * rate;
+    totalBill    += bill;
+
+    tripRows += `
+      <tr class="log-data-row">
+        <td class="num-cell">${date}</td>
+        <td>${plaza}</td>
+        <td>${from}</td>
+        <td>${to}</td>
+        <td class="purpose-cell">${purpose}</td>
+        <td class="num-cell">${start.toFixed(2)}</td>
+        <td class="num-cell">${end.toFixed(2)}</td>
+        <td class="num-cell">${total.toFixed(2)}</td>
+        <td class="num-cell">${excess.toFixed(2)}</td>
+        <td class="bill-cell">৳${bill.toFixed(2)}</td>
+      </tr>`;
+  });
+
+  const openImg = document.getElementById('img-open');
+  const closeImg = document.getElementById('img-close');
+  const openSrc  = openImg.src;
+  const closeSrc = closeImg.src;
+  const openRot  = parseInt(openImg.dataset.rotation || '0', 10);
+  const closeRot = parseInt(closeImg.dataset.rotation || '0', 10);
+
+  document.getElementById('printable').innerHTML = `
+  <table class="log-table">
+    <tr class="log-title-row">
+      <td colspan="10">দৈনিক মেটর সাইকেল চলাচল ও জ্বালানি খরচ হিসেবের (লগ বই)</td>
+    </tr>
+    <tr class="log-meta-row">
+      <td colspan="2"><b>মডেল :</b> ${model}</td>
+      <td colspan="4"><b>ইঞ্জিন নং :</b> ${engine}</td>
+      <td colspan="4"><b>মোটর সাইকেল রেজিঃ নং :</b> ${regno}</td>
+    </tr>
+    <tr class="log-meta-row">
+      <td colspan="2"><b>Name:</b> ${empname}</td>
+      <td colspan="4"><b>Designation:</b> ${desig}</td>
+      <td colspan="4"><b>Dept:</b> ${dept}</td>
+    </tr>
+    <tr class="log-header-row">
+      <td rowspan="2">তারিখ</td>
+      <td rowspan="2">প্লাজার নাম</td>
+      <td rowspan="2">হইতে<br><small>স্থান</small></td>
+      <td rowspan="2">গন্তব্য<br><small>স্থান</small></td>
+      <td rowspan="2">কি কারনে মোটর সাইকেল ব্যবহার হয়েছে তার বিবরণ</td>
+      <td colspan="4" style="text-align:center">মাইলেঞ্জ কিঃ মিঃ</td>
+      <td rowspan="2">মোট বিল টাকা<br><small>(থতি কিঃমিঃ ${rate.toFixed(2)} টাকা)</small></td>
+    </tr>
+    <tr class="log-header-row">
+      <td>ভ্রমন শেষে<br>কিঃ মিঃ</td>
+      <td>ভমন শেষে<br>কিঃ মিঃ</td>
+      <td>অফিসিয়াল ব্যবহৃত<br>মোট কিঃ মিঃ</td>
+      <td>ব্যতিগত ব্যবহৃত<br>কিঃ মিঃ</td>
+    </tr>
+    ${tripRows}
+    <tr style="background:#F5F5F2;font-weight:700;font-size:12px">
+      <td colspan="9" style="text-align:right;padding:7px 10px;border:1px solid #888">মোট বিল (Total Bill):</td>
+      <td style="text-align:right;padding:7px 10px;border:1px solid #888;color:#E8500A;font-size:13px">৳${totalBill.toFixed(2)}</td>
+    </tr>
+  </table>
+
+  <div class="odo-strip">
+    <div class="odo-box">
+      <div class="odo-lbl">🟢 Opening Meter — শুরুর মিটার রিডিং</div>
+      <div class="odo-photo-wrap">${openSrc && openSrc !== window.location.href ? `<img src="${openSrc}" alt="Opening meter" style="transform: rotate(${openRot}deg);">` : `<div class="odo-no-photo">📷 No photo uploaded</div>`}</div>
+    </div>
+    <div class="odo-box">
+      <div class="odo-lbl">🔴 Closing Meter — শেষের মিটার রিডিং</div>
+      <div class="odo-photo-wrap">${closeSrc && closeSrc !== window.location.href ? `<img src="${closeSrc}" alt="Closing meter" style="transform: rotate(${closeRot}deg);">` : `<div class="odo-no-photo">📷 No photo uploaded</div>`}</div>
+    </div>
+  </div>`;
+
+  const sec = document.getElementById('preview-section');
+  sec.classList.add('visible');
+  sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  if (!auth.currentUser) {
+    alert('Sign in with Google to save this log to Firebase.');
+  } else {
+    const record = buildLogPayload(rate, totalBill, openSrc, closeSrc, openRot, closeRot);
+    saveLogToFirestore(record);
+  }
+}
+
+async function saveUserSettings() {
+  const user = auth.currentUser;
+  if (!user) { alert('Please sign in first.'); return; }
+  const data = {
+    model: document.getElementById('model').value,
+    engine: document.getElementById('engine').value,
+    regno: document.getElementById('regno').value,
+    empname: document.getElementById('empname').value,
+    desig: document.getElementById('desig').value,
+    dept: document.getElementById('dept').value,
+    rate: parseFloat(document.getElementById('rate').value) || 8.50,
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    await db.collection('users').doc(user.uid).set(data, { merge: true });
+    alert('Settings saved to Firebase.');
+  } catch (err) {
+    alert('Save failed: ' + err.message);
+  }
+}
+
+/* ── Photo upload ── */
+function loadPhoto(input, boxId, imgId) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const box = document.getElementById(boxId);
+    const img = document.getElementById(imgId);
+    img.src = e.target.result;
+    img.style.display = 'block';
+    img.style.transform = 'rotate(0deg)';
+    img.dataset.rotation = '0';
+    box.classList.add('filled');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removePhoto(e, boxId, imgId) {
+  e.stopPropagation();
+  const box = document.getElementById(boxId);
+  const img = document.getElementById(imgId);
+  img.src = '';
+  img.style.display = 'none';
+  img.style.transform = 'rotate(0deg)';
+  img.dataset.rotation = '0';
+  box.classList.remove('filled');
+  const fi = box.querySelector('input[type=file]');
+  fi.style.display = '';
+  fi.value = '';
+}
+
+function rotatePhoto(imgId, delta) {
+  const img = document.getElementById(imgId);
+  if (!img || !img.src) return;
+  const current = parseInt(img.dataset.rotation || '0', 10);
+  const next = (current + delta + 360) % 360;
+  img.dataset.rotation = String(next);
+  img.style.transform = `rotate(${next}deg)`;
+}
+
+/* ── Trip rows ── */
+function addTrip(d) {
+  tripCount++;
+  d = d || {};
+  const id = 'trip_' + tripCount;
+  const div = document.createElement('div');
+  div.className = 'trip-row';
+  div.id = id;
+  div.innerHTML = `
+    <div class="trip-row-header">
+      <div class="trip-num">${tripCount}</div>
+      <div class="trip-label">Trip Entry #${tripCount}</div>
+      <button class="del-btn" onclick="deleteTrip('${id}')">✕ Remove</button>
+    </div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div class="field"><label>তারিখ (Date) <span>*</span></label>
+        <input class="t-date" value="${d.date || ''}" placeholder="dd.mm.yy"></div>
+      <div class="field"><label>প্লাজার নাম (Plaza) <span>*</span></label>
+        <input class="t-plaza" value="${d.plaza || ''}"></div>
+    </div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div class="field"><label>হইতে (From) <span>*</span></label>
+        <input class="t-from" value="${d.from || ''}"></div>
+      <div class="field"><label>গন্তব্য (To) <span>*</span></label>
+        <input class="t-to" value="${d.to || ''}"></div>
+    </div>
+    <div class="field" style="margin-bottom:10px">
+      <label>কারণ (Purpose) <span>*</span></label>
+      <input class="t-purpose" value="${d.purpose || ''}">
+    </div>
+    <div class="grid3">
+      <div class="field"><label>শুরুর KM <span>*</span></label>
+        <input class="t-start" type="number" inputmode="decimal" lang="en" value="${d.start !== undefined ? d.start : ''}" oninput="calcKM('${id}')"></div>
+      <div class="field"><label>শেষের KM <span>*</span></label>
+        <input class="t-end" type="number" inputmode="decimal" lang="en" value="${d.end !== undefined ? d.end : ''}" oninput="calcKM('${id}')"></div>
+      <div class="field"><label>ব্যতিগত KM</label>
+        <input class="t-excess" type="number" inputmode="decimal" lang="en" value="${d.excess !== undefined ? d.excess : ''}" oninput="calcKM('${id}')"></div>
+    </div>
+    <div class="km-calc" id="calc_${id}">
+      <span>মোট KM: <strong id="tot_${id}">0</strong></span>
+      <span>নেট KM: <strong id="net_${id}">0</strong></span>
+      <span>বিল: <strong id="bill_${id}">৳0.00</strong></span>
+    </div>`;
+  document.getElementById('trips-container').appendChild(div);
+  updateBadge();
+  calcKM(id);
+}
+
+function calcKM(id) {
+  const row = document.getElementById(id);
+  if (!row) return;
+  const start  = parseFloat(row.querySelector('.t-start').value)  || 0;
+  const end    = parseFloat(row.querySelector('.t-end').value)    || 0;
+  const excess = parseFloat(row.querySelector('.t-excess').value) || 0;
+  const rate   = parseFloat(document.getElementById('rate').value) || 8.50;
+  const total  = Math.max(0, end - start);
+  const net    = Math.max(0, total - excess);
+  document.getElementById('tot_'+id).textContent  = total.toFixed(2);
+  document.getElementById('net_'+id).textContent  = net.toFixed(2);
+  document.getElementById('bill_'+id).textContent = '৳' + (net * rate).toFixed(2);
+}
+
+function deleteTrip(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.transition = 'all .2s';
+  el.style.opacity = '0';
+  el.style.transform = 'translateX(20px)';
+  setTimeout(() => { el.remove(); updateBadge(); }, 200);
+}
+
+function clearAll() {
+  if (!confirm('Clear all trip entries?')) return;
+  document.getElementById('trips-container').innerHTML = '';
+  tripCount = 0;
+  updateBadge();
+  document.getElementById('preview-section').classList.remove('visible');
+}
+
+function updateBadge() {
+  const n = document.querySelectorAll('.trip-row').length;
+  document.getElementById('trip-count-badge').textContent = n + ' trip' + (n !== 1 ? 's' : '');
+}
+
+/* ── Generate log ── */
+function generateLog() {
+  const model   = document.getElementById('model').value;
+  const engine  = document.getElementById('engine').value;
+  const regno   = document.getElementById('regno').value;
+  const empname = document.getElementById('empname').value;
+  const desig   = document.getElementById('desig').value;
+  const dept    = document.getElementById('dept').value;
+
+  const rows = document.querySelectorAll('.trip-row');
+  if (!rows.length) { alert('Please add at least one trip entry.'); return; }
+
+  const rate = parseFloat(document.getElementById('rate').value) || 8.50;
+  let tripRows = '';
+  let totalBill = 0;
+
+  rows.forEach(row => {
+    const date    = row.querySelector('.t-date').value;
+    const plaza   = row.querySelector('.t-plaza').value;
+    const from    = row.querySelector('.t-from').value;
+    const to      = row.querySelector('.t-to').value;
+    const purpose = row.querySelector('.t-purpose').value;
+    const start   = parseFloat(row.querySelector('.t-start').value)  || 0;
+    const end     = parseFloat(row.querySelector('.t-end').value)    || 0;
+    const excess  = parseFloat(row.querySelector('.t-excess').value) || 0;
+    const total   = Math.max(0, end - start);
+    const net     = Math.max(0, total - excess);
+    const bill    = net * rate;
+    totalBill    += bill;
+
+    tripRows += `
+      <tr class="log-data-row">
+        <td class="num-cell">${date}</td>
+        <td>${plaza}</td>
+        <td>${from}</td>
+        <td>${to}</td>
+        <td class="purpose-cell">${purpose}</td>
+        <td class="num-cell">${start.toFixed(2)}</td>
+        <td class="num-cell">${end.toFixed(2)}</td>
+        <td class="num-cell">${total.toFixed(2)}</td>
+        <td class="num-cell">${excess.toFixed(2)}</td>
+        <td class="bill-cell">৳${bill.toFixed(2)}</td>
+      </tr>`;
+  });
+
+  // Odometer photos
+  const openImg = document.getElementById('img-open');
+  const closeImg = document.getElementById('img-close');
+  const openSrc  = openImg.src;
+  const closeSrc = closeImg.src;
+  const openRot  = parseInt(openImg.dataset.rotation || '0', 10);
+  const closeRot = parseInt(closeImg.dataset.rotation || '0', 10);
+
+  const openContent  = openSrc  && openSrc !== window.location.href
+    ? `<img src="${openSrc}" alt="Opening meter" style="transform: rotate(${openRot}deg);">`
+    : `<div class="odo-no-photo">📷 No photo uploaded</div>`;
+  const closeContent = closeSrc && closeSrc !== window.location.href
+    ? `<img src="${closeSrc}" alt="Closing meter" style="transform: rotate(${closeRot}deg);">`
+    : `<div class="odo-no-photo">📷 No photo uploaded</div>`;
+
+  document.getElementById('printable').innerHTML = `
+  <table class="log-table">
+    <tr class="log-title-row">
+      <td colspan="10">দৈনিক মেটর সাইকেল চলাচল ও জ্বালানি খরচ হিসেবের (লগ বই)</td>
+    </tr>
+    <tr class="log-meta-row">
+      <td colspan="2"><b>মডেল :</b> ${model}</td>
+      <td colspan="4"><b>ইঞ্জিন নং :</b> ${engine}</td>
+      <td colspan="4"><b>মোটর সাইকেল রেজিঃ নং :</b> ${regno}</td>
+    </tr>
+    <tr class="log-meta-row">
+      <td colspan="2"><b>Name:</b> ${empname}</td>
+      <td colspan="4"><b>Designation:</b> ${desig}</td>
+      <td colspan="4"><b>Dept:</b> ${dept}</td>
+    </tr>
+    <tr class="log-header-row">
+      <td rowspan="2">তারিখ</td>
+      <td rowspan="2">প্লাজার নাম</td>
+      <td rowspan="2">হইতে<br><small>স্থান</small></td>
+      <td rowspan="2">গন্তব্য<br><small>স্থান</small></td>
+      <td rowspan="2">কি কারনে মোটর সাইকেল ব্যবহার হয়েছে তার বিবরণ</td>
+      <td colspan="4" style="text-align:center">মাইলেঞ্জ কিঃ মিঃ</td>
+      <td rowspan="2">মোট বিল টাকা<br><small>(থতি কিঃমিঃ ${rate.toFixed(2)} টাকা)</small></td>
+    </tr>
+    <tr class="log-header-row">
+      <td>ভ্রমন শেষে<br>কিঃ মিঃ</td>
+      <td>ভমন শেষে<br>কিঃ মিঃ</td>
+      <td>অফিসিয়াল ব্যবহৃত<br>মোট কিঃ মিঃ</td>
+      <td>ব্যতিগত ব্যবহৃত<br>কিঃ মিঃ</td>
+    </tr>
+    ${tripRows}
+    <tr style="background:#F5F5F2;font-weight:700;font-size:12px">
+      <td colspan="9" style="text-align:right;padding:7px 10px;border:1px solid #888">মোট বিল (Total Bill):</td>
+      <td style="text-align:right;padding:7px 10px;border:1px solid #888;color:#E8500A;font-size:13px">৳${totalBill.toFixed(2)}</td>
+    </tr>
+  </table>
+
+  <div class="odo-strip">
+    <div class="odo-box">
+      <div class="odo-lbl">🟢 Opening Meter — শুরুর মিটার রিডিং</div>
+      <div class="odo-photo-wrap">${openContent}</div>
+    </div>
+    <div class="odo-box">
+      <div class="odo-lbl">🔴 Closing Meter — শেষের মিটার রিডিং</div>
+      <div class="odo-photo-wrap">${closeContent}</div>
+    </div>
+  </div>`;
+
+  const sec = document.getElementById('preview-section');
+  sec.classList.add('visible');
+  sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── Save as image ── */
+function downloadImage() {
+  const el = document.getElementById('printable');
+  const btn = event.target;
+  btn.textContent = '⏳ Generating...';
+  btn.disabled = true;
+
+  html2canvas(el, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor: '#ffffff',
+    logging: false
+  }).then(canvas => {
+    const d = new Date();
+    const fname = 'moto_log_' +
+      String(d.getDate()).padStart(2,'0') +
+      String(d.getMonth()+1).padStart(2,'0') +
+      d.getFullYear() + '.jpg';
+    const link = document.createElement('a');
+    link.download = fname;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
+    link.click();
+    btn.textContent = '⬇️ Save as Image (JPG)';
+    btn.disabled = false;
+  });
+}
+
+/* ── Print ── */
+function printLog() {
+  const pr = document.getElementById('print-root');
+  pr.innerHTML = document.getElementById('printable').innerHTML;
+  pr.style.display = 'block';
+  setTimeout(() => { window.print(); pr.style.display = 'none'; }, 300);
+}
+
+/* ── Init ── */
+addTrip();
+</script>
+</body>
+</html>
