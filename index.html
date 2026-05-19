@@ -274,6 +274,7 @@ body {
   border-radius: 0 0 var(--radius) var(--radius);
   padding: 16px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow);
 }
 
@@ -281,12 +282,13 @@ body {
 #printable {
   background: #fff;
   font-family: 'Hind Siliguri', 'Noto Sans Bengali', Arial, sans-serif;
+  min-width: 900px;
 }
 .log-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 11px;
-  min-width: 680px;
+  min-width: 900px;
 }
 .log-table td {
   border: 1px solid #888;
@@ -369,10 +371,8 @@ body {
   .preview-bar { flex-direction: column; align-items: stretch; }
   .preview-bar > div { width: 100%; }
   .preview-bar button { width: 100%; }
-  .odo-strip { flex-direction: column; }
-  .odo-box { width: 100%; }
-  .log-table { min-width: 100%; font-size: 10px; }
-  .log-header-row td, .log-meta-row td, .log-title-row td { font-size: 10px; }
+  #log-preview-wrap { overflow-x: auto; }
+  #printable { min-width: 900px; }
 }
 
 @media(max-width: 520px) {
