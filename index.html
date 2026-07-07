@@ -57,6 +57,26 @@ body {
   margin-bottom: 18px;
   overflow: hidden;
 }
+.card.collapsible {
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.card.collapsible:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.card.collapsed .card-body {
+  display: none;
+}
+.card.collapsed .card-header::after {
+  content: ' ▼';
+  font-size: 12px;
+  margin-left: 8px;
+}
+.card:not(.collapsed) .card-header::after {
+  content: ' ▲';
+  font-size: 12px;
+  margin-left: 8px;
+}
 .card-header {
   background: var(--gray-dark);
   color: #fff;
@@ -452,9 +472,68 @@ body {
 
 <div class="main">
 
+  <!-- DASHBOARD CARDS -->
+  <div class="grid2" id="dashboard-cards" style="margin-bottom: 24px;">
+    <!-- CARD 1: KM STATISTICS -->
+    <div class="card">
+      <div class="card-header">📊 Current Month KM Stats</div>
+      <div class="card-body">
+        <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 16px;">
+          <div style="font-size: 32px; font-weight: 700; color: var(--orange);" id="stats-total-km">0</div>
+          <div style="font-size: 14px; color: var(--gray-mid);">KM</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="background: var(--orange-light); padding: 12px; border-radius: 8px;">
+            <div style="font-size: 11px; color: var(--gray-mid); font-weight: 600; text-transform: uppercase; letter-spacing: .4px;">Official KM</div>
+            <div style="font-size: 20px; font-weight: 700; color: var(--orange); margin-top: 4px;" id="stats-official-km">0</div>
+          </div>
+          <div style="background: var(--orange-light); padding: 12px; border-radius: 8px;">
+            <div style="font-size: 11px; color: var(--gray-mid); font-weight: 600; text-transform: uppercase; letter-spacing: .4px;">ব্যতিগত KM</div>
+            <div style="font-size: 20px; font-weight: 700; color: var(--orange); margin-top: 4px;" id="stats-personal-km">0</div>
+          </div>
+        </div>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 11px; color: var(--gray-mid); font-weight: 600; text-transform: uppercase; letter-spacing: .4px;">Days Recorded</div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--gray-dark); margin-top: 4px;" id="stats-days-count">0</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 11px; color: var(--gray-mid); font-weight: 600; text-transform: uppercase; letter-spacing: .4px;">Avg/Day</div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--gray-dark); margin-top: 4px;" id="stats-avg-km">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 2: EARNINGS STATISTICS -->
+    <div class="card">
+      <div class="card-header">💰 Current Month Earnings</div>
+      <div class="card-body">
+        <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 16px;">
+          <div style="font-size: 32px; font-weight: 700; color: var(--orange);" id="stats-total-tk">0</div>
+          <div style="font-size: 14px; color: var(--gray-mid);">TK</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="background: var(--orange-light); padding: 12px; border-radius: 8px;">
+            <div style="font-size: 11px; color: var(--gray-mid); font-weight: 600; text-transform: uppercase; letter-spacing: .4px;">Official Earnings</div>
+            <div style="font-size: 20px; font-weight: 700; color: var(--orange); margin-top: 4px;" id="stats-official-tk">0</div>
+          </div>
+          <div style="background: var(--orange-light); padding: 12px; border-radius: 8px;">
+            <div style="font-size: 11px; color: var(--gray-mid); font-weight: 600; text-transform: uppercase; letter-spacing: .4px;">Rate/KM</div>
+            <div style="font-size: 20px; font-weight: 700; color: var(--orange); margin-top: 4px;" id="stats-rate-km">8.50</div>
+          </div>
+        </div>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+          <div style="font-size: 11px; color: var(--gray-mid); font-weight: 600; text-transform: uppercase; letter-spacing: .4px;">Trips Recorded</div>
+          <div style="font-size: 18px; font-weight: 700; color: var(--gray-dark); margin-top: 4px;" id="stats-trips-count">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- USER LOGIN -->
-  <div class="card">
-    <div class="card-header">🔐 User Login</div>
+  <div class="card collapsible" id="login-card">
+    <div class="card-header" onclick="toggleCard('login-card')">🔐 User Login</div>
     <div class="card-body">
       <div class="grid2" style="margin-bottom:12px">
         <div class="field"><label>User</label><input id="user-email" disabled value="Not signed in"></div>
@@ -471,8 +550,8 @@ body {
   </div>
 
   <!-- VEHICLE INFO -->
-  <div class="card">
-    <div class="card-header">🚗 Vehicle &amp; Officer Information</div>
+  <div class="card collapsible" id="vehicle-card">
+    <div class="card-header" onclick="toggleCard('vehicle-card')">🚗 Vehicle &amp; Officer Information</div>
     <div class="card-body">
       <div class="grid3" style="margin-bottom:14px">
         <div class="field"><label>মডেল <span>*</span></label><input id="model" value=""></div>
@@ -610,6 +689,13 @@ function todayStr() {
          String(d.getFullYear()).slice(-2);
 }
 
+function toggleCard(cardId) {
+  const card = document.getElementById(cardId);
+  if (card.classList.contains('collapsible')) {
+    card.classList.toggle('collapsed');
+  }
+}
+
 /* ── Firebase login & storage ── */
 const firebaseConfig = {
   apiKey: 'AIzaSyBQqFnI951dU-NX1AU_rR-zjCy7DEEGNIM',
@@ -629,18 +715,24 @@ function updateAuthUI(user) {
   const loginBtn = document.getElementById('login-btn');
   const logoutBtn = document.getElementById('logout-btn');
   const saveBtn = document.getElementById('save-settings-btn');
+  const loginCard = document.getElementById('login-card');
+  const vehicleCard = document.getElementById('vehicle-card');
+  
   if (user) {
     emailInput.value = user.email || user.displayName || 'Signed in';
     statusInput.value = 'Signed in';
     loginBtn.style.display = 'none';
     logoutBtn.style.display = 'inline-flex';
     saveBtn.disabled = false;
+    loginCard.classList.remove('collapsed');
   } else {
     emailInput.value = 'Not signed in';
     statusInput.value = 'Please sign in with Google';
     loginBtn.style.display = 'inline-flex';
     logoutBtn.style.display = 'none';
     saveBtn.disabled = true;
+    loginCard.classList.remove('collapsed');
+    vehicleCard.classList.remove('collapsed');
     /* Clear vehicle & officer fields when not logged in */
     document.getElementById('model').value = '';
     document.getElementById('engine').value = '';
@@ -691,8 +783,85 @@ async function loadUserData(uid) {
     document.getElementById('desig').value = data.desig || '';
     document.getElementById('dept').value = data.dept || '';
     document.getElementById('rate').value = data.rate !== undefined ? data.rate : 8.50;
+    
+    // Collapse vehicle card if vehicle data is saved
+    const vehicleCard = document.getElementById('vehicle-card');
+    const model = data.model || '';
+    const engine = data.engine || '';
+    const regno = data.regno || '';
+    if (model && engine && regno) {
+      vehicleCard.classList.add('collapsed');
+    } else {
+      vehicleCard.classList.remove('collapsed');
+    }
+    
+    // Load dashboard data from saved logs
+    loadDashboardFromFirebase(uid);
   } catch (err) {
     console.error('Load user data failed', err);
+  }
+}
+
+async function loadDashboardFromFirebase(uid) {
+  try {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    
+    const startDate = new Date(currentYear, currentMonth, 1);
+    const endDate = new Date(currentYear, currentMonth + 1, 1);
+    
+    const query = db.collection('users').doc(uid).collection('logs')
+      .where('generatedAt', '>=', firebase.firestore.Timestamp.fromDate(startDate))
+      .where('generatedAt', '<', firebase.firestore.Timestamp.fromDate(endDate));
+    
+    const snapshot = await query.get();
+    
+    let totalKM = 0;
+    let officialKM = 0;
+    let personalKM = 0;
+    let totalBill = 0;
+    let daysSet = new Set();
+    let tripCount = 0;
+    
+    snapshot.forEach(doc => {
+      const logData = doc.data();
+      const trips = logData.trips || [];
+      
+      trips.forEach(trip => {
+        if (trip.dateIso) {
+          daysSet.add(trip.dateIso);
+          const total = trip.total || 0;
+          const excess = trip.excess || 0;
+          const net = trip.net || 0;
+          const bill = trip.bill || 0;
+          
+          totalKM += total;
+          officialKM += net;
+          personalKM += excess;
+          totalBill += bill;
+          tripCount++;
+        }
+      });
+    });
+    
+    const daysCount = daysSet.size;
+    const avgKM = daysCount > 0 ? (totalKM / daysCount).toFixed(2) : 0;
+    const rate = parseFloat(document.getElementById('rate').value) || 8.50;
+    
+    document.getElementById('stats-total-km').textContent = totalKM.toFixed(2);
+    document.getElementById('stats-official-km').textContent = officialKM.toFixed(2);
+    document.getElementById('stats-personal-km').textContent = personalKM.toFixed(2);
+    document.getElementById('stats-days-count').textContent = daysCount;
+    document.getElementById('stats-avg-km').textContent = avgKM;
+    
+    document.getElementById('stats-total-tk').textContent = totalBill.toFixed(2);
+    document.getElementById('stats-official-tk').textContent = totalBill.toFixed(2);
+    document.getElementById('stats-rate-km').textContent = rate.toFixed(2);
+    document.getElementById('stats-trips-count').textContent = tripCount;
+    
+  } catch (err) {
+    console.error('Load dashboard data failed', err);
   }
 }
 
@@ -1244,6 +1413,7 @@ function calcKM(id) {
   document.getElementById('tot_'+id).textContent  = total.toFixed(2);
   document.getElementById('net_'+id).textContent  = net.toFixed(2);
   document.getElementById('bill_'+id).textContent = '৳' + (net * rate).toFixed(2);
+  updateDashboard();
 }
 
 function deleteTrip(id) {
@@ -1266,6 +1436,53 @@ function clearAll() {
 function updateBadge() {
   const n = document.querySelectorAll('.trip-row').length;
   document.getElementById('trip-count-badge').textContent = n + ' trip' + (n !== 1 ? 's' : '');
+  updateDashboard();
+}
+
+function updateDashboard() {
+  const trips = buildTripRows();
+  const rate = parseFloat(document.getElementById('rate').value) || 8.50;
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
+  
+  let totalKM = 0;
+  let officialKM = 0;
+  let personalKM = 0;
+  let totalBill = 0;
+  let daysSet = new Set();
+  let tripCount = 0;
+  
+  trips.forEach(trip => {
+    if (trip.dateIso) {
+      const tripDate = new Date(trip.dateIso + 'T00:00:00');
+      if (tripDate.getMonth() === currentMonth && tripDate.getFullYear() === currentYear) {
+        daysSet.add(trip.dateIso);
+        const officialTrip = Math.max(0, trip.net || 0);
+        const personalTrip = Math.max(0, trip.excess || 0);
+        
+        totalKM += trip.total || 0;
+        officialKM += officialTrip;
+        personalKM += personalTrip;
+        totalBill += trip.bill || 0;
+        tripCount++;
+      }
+    }
+  });
+  
+  const daysCount = daysSet.size;
+  const avgKM = daysCount > 0 ? (totalKM / daysCount).toFixed(2) : 0;
+  
+  document.getElementById('stats-total-km').textContent = totalKM.toFixed(2);
+  document.getElementById('stats-official-km').textContent = officialKM.toFixed(2);
+  document.getElementById('stats-personal-km').textContent = personalKM.toFixed(2);
+  document.getElementById('stats-days-count').textContent = daysCount;
+  document.getElementById('stats-avg-km').textContent = avgKM;
+  
+  document.getElementById('stats-total-tk').textContent = totalBill.toFixed(2);
+  document.getElementById('stats-official-tk').textContent = totalBill.toFixed(2);
+  document.getElementById('stats-rate-km').textContent = rate.toFixed(2);
+  document.getElementById('stats-trips-count').textContent = tripCount;
 }
 
 /* ── Save as image ── */
@@ -1306,6 +1523,10 @@ function printLog() {
 
 /* ── Init ── */
 addTrip();
+
+// Update dashboard when rate changes
+document.getElementById('rate').addEventListener('change', updateDashboard);
+document.getElementById('rate').addEventListener('input', updateDashboard);
 
 const exportDrawer = document.getElementById('export-drawer');
 const exportDrawerToggle = document.getElementById('export-drawer-toggle');
