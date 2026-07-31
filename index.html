@@ -658,20 +658,16 @@ body {
         <span class="drawer-chevron" aria-hidden="true">▴</span>
       </button>
       <div class="drawer-content">
-        <div class="grid2" style="margin-bottom:10px">
-          <div class="field"><label>From</label><input id="filter-from" type="date"></div>
-          <div class="field"><label>To</label><input id="filter-to" type="date"></div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+          <div class="field" style="flex:1;min-width:160px">
+            <label>📅 Month</label>
+            <input id="filter-month" type="month">
+          </div>
+          <button class="btn btn-add export-btn" id="export-view-btn" type="button" onclick="refreshExportResults()" disabled style="height:38px;white-space:nowrap">🔍 View Data</button>
+          <button class="btn btn-dl export-btn" id="export-excel-btn" type="button" onclick="exportCurrentLogs('excel')" disabled style="height:38px;white-space:nowrap">⬇️ Download Excel</button>
         </div>
-        <div class="grid2" style="margin-bottom:10px">
-          <div class="field"><label>Month</label><input id="filter-month" type="month"></div>
-          <div class="field"><label>&nbsp;</label><button class="btn btn-add export-btn" id="export-view-btn" type="button" onclick="refreshExportResults()" disabled>View Data</button></div>
-        </div>
-        <div class="btn-row" style="margin-top:4px">
-          <button class="btn btn-dl export-btn" id="export-excel-btn" type="button" onclick="exportCurrentLogs('excel')" disabled>Download Excel</button>
-          <button class="btn btn-pr2 export-btn" id="export-pdf-btn" type="button" onclick="exportCurrentLogs('pdf')" disabled>Download PDF</button>
-        </div>
-        <div id="export-status" style="margin-top:12px;font-size:12px;color:#555;line-height:1.5;"></div>
-        <div id="export-results" style="margin-top:10px;"></div>
+        <div id="export-status" style="font-size:12px;color:#555;line-height:1.5;margin-bottom:8px;"></div>
+        <div id="export-results" style="margin-top:6px;"></div>
       </div>
     </div>
   </div>
@@ -957,23 +953,16 @@ async function querySavedLogs(filterType) {
   const user = auth.currentUser;
   if (!user) return [];
   let query = db.collection('users').doc(user.uid).collection('logs').orderBy('generatedAt', 'desc');
-  const fromValue = document.getElementById('filter-from').value;
-  const toValue = document.getElementById('filter-to').value;
   const monthValue = document.getElementById('filter-month').value;
   const toTimestamp = date => firebase.firestore.Timestamp.fromDate(date);
 
-  if (filterType === 'range' && fromValue && toValue) {
-    const start = new Date(fromValue + 'T00:00:00');
-    const end = new Date(toValue + 'T00:00:00');
-    end.setDate(end.getDate() + 1);
-    query = query.where('generatedAt', '>=', toTimestamp(start)).where('generatedAt', '<', toTimestamp(end));
-  } else if (filterType === 'month' && monthValue) {
+  if (monthValue) {
     const [year, month] = monthValue.split('-').map(Number);
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 1);
     query = query.where('generatedAt', '>=', toTimestamp(start)).where('generatedAt', '<', toTimestamp(end));
   } else {
-    alert('Please select valid filter criteria.');
+    alert('Please select a month.');
     return [];
   }
 
@@ -981,160 +970,6 @@ async function querySavedLogs(filterType) {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
-function downloadLogsExcel(logs, filename) {
-  const log = logs[0] || {};
-  const model = log.model || '';
-  const engine = log.engine || '';
-  const regno = log.regno || '';
-  const empname = log.empname || '';
-  const desig = log.desig || '';
-  const dept = log.dept || '';
-  const rate = log.rate !== undefined && log.rate !== null ? Number(log.rate) : 8.50;
-  const trips = Array.isArray(log.trips) ? log.trips : [];
-
-  /* Build full table as array-of-arrays */
-  const aoa = [];
-
-  /* Row 0: Title */
-  aoa.push(['দৈনিক মেটর সাইকেল চলাচল ও জ্বালানি খরচ হিসেবের (লগ বই)', '', '', '', '', '', '', '', '', '']);
-
-  /* Row 1: Meta — Model, Engine, RegNo */
-  aoa.push(['মডেল :', model, '', 'ইঞ্জিন নং :', engine, '', '', 'মোটর সাইকেল রেজিঃ নং :', regno, '']);
-
-  /* Row 2: Meta — Name, Designation, Dept */
-  aoa.push(['Name:', empname, '', 'Designation:', desig, '', '', 'Dept:', dept, '']);
-
-  /* Row 3: Header row 1 */
-  aoa.push(['তারিখ', 'প্লাজার নাম', 'হইতে', 'গন্তব্য', 'কি কারনে মোটর সাইকেল ব্যবহার হয়েছে তার বিবরণ', 'মাইলেঞ্জ কিঃ মিঃ', '', '', '', 'মোট বিল টাকা\n(থতি কিঃমিঃ ' + rate.toFixed(2) + ' টাকা)']);
-
-  /* Row 4: Header row 2 (sub-headers under মাইলেঞ্জ) */
-  aoa.push(['', '', '', '', '', 'ভ্রমণ শুরুর\nকিঃ মিঃ', 'ভ্রমণ শেষে\nকিঃ মিঃ', 'অফিসিয়াল ব্যবহৃত\nমোট কিঃ মিঃ', 'ব্যতিগত ব্যবহৃত\nকিঃ মিঃ', '']);
-
-  /* Data rows */
-  let totalBill = 0;
-  trips.forEach(trip => {
-    const start = Number(trip.start) || 0;
-    const end = Number(trip.end) || 0;
-    const excess = Number(trip.excess) || 0;
-    const total = trip.total !== undefined ? Number(trip.total) : Math.max(0, end - start);
-    const net = trip.net !== undefined ? Number(trip.net) : Math.max(0, total - excess);
-    const bill = trip.bill !== undefined ? Number(trip.bill) : +(net * rate).toFixed(2);
-    totalBill += bill;
-    aoa.push([
-      trip.date || '',
-      trip.plaza || '',
-      trip.from || '',
-      trip.to || '',
-      trip.purpose || '',
-      start.toFixed(2),
-      end.toFixed(2),
-      total.toFixed(2),
-      excess.toFixed(2),
-      bill.toFixed(2)
-    ]);
-  });
-
-  /* Total bill row */
-  aoa.push(['', '', '', '', '', '', '', '', 'মোট বিল (Total Bill):', totalBill.toFixed(2)]);
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-  /* Merges */
-  ws['!merges'] = [
-    /* Title row spans all 10 cols */
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
-    /* Meta row 1: model (A2:C2), engine (D2:G2), regno (H2:J2) */
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
-    { s: { r: 1, c: 3 }, e: { r: 1, c: 6 } },
-    { s: { r: 1, c: 7 }, e: { r: 1, c: 9 } },
-    /* Meta row 2: name (A3:C3), desig (D3:G3), dept (H3:J3) */
-    { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },
-    { s: { r: 2, c: 3 }, e: { r: 2, c: 6 } },
-    { s: { r: 2, c: 7 }, e: { r: 2, c: 9 } },
-    /* Header row 1: তারিখ (r3-r4), প্লাজার (r3-r4), হইতে (r3-r4), গন্তব্য (r3-r4), কারণ (r3-r4), মাইলেঞ্জ (F4:I4), বিল (r3-r4) */
-    { s: { r: 3, c: 0 }, e: { r: 4, c: 0 } },
-    { s: { r: 3, c: 1 }, e: { r: 4, c: 1 } },
-    { s: { r: 3, c: 2 }, e: { r: 4, c: 2 } },
-    { s: { r: 3, c: 3 }, e: { r: 4, c: 3 } },
-    { s: { r: 3, c: 4 }, e: { r: 4, c: 4 } },
-    { s: { r: 3, c: 5 }, e: { r: 3, c: 8 } },
-    { s: { r: 3, c: 9 }, e: { r: 4, c: 9 } },
-    /* Total row: cols A-I merged */
-    { s: { r: 5 + trips.length, c: 0 }, e: { r: 5 + trips.length, c: 8 } }
-  ];
-
-  /* Column widths */
-  ws['!cols'] = [
-    { wch: 11 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 32 },
-    { wch: 13 }, { wch: 13 }, { wch: 15 }, { wch: 14 }, { wch: 14 }
-  ];
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Log Sheet');
-  XLSX.writeFile(wb, filename);
-}
-
-async function downloadLogsPdf(logs, filename, filterType) {
-  const content = document.createElement('div');
-  content.style.width = '1024px';
-  content.style.padding = '24px';
-  content.style.background = '#ffffff';
-  content.innerHTML = `<div style="font-size:18px;font-weight:700;margin-bottom:12px">Motorcycle Log Sheet Export (${filterType})</div>`;
-  logs.forEach(log => {
-    const header = document.createElement('div');
-    header.innerHTML = `<div style="margin-bottom:10px;font-size:13px;font-weight:600">Generated: ${log.generatedIso || ''} — ${log.model || ''} / ${log.empname || ''}</div>`;
-    content.appendChild(header);
-    const table = document.createElement('table');
-    table.style.width = '100%';
-    table.style.borderCollapse = 'collapse';
-    table.innerHTML = `<thead><tr>
-      <th style="border:1px solid #444;padding:4px">Trip Date</th>
-      <th style="border:1px solid #444;padding:4px">Plaza</th>
-      <th style="border:1px solid #444;padding:4px">From</th>
-      <th style="border:1px solid #444;padding:4px">To</th>
-      <th style="border:1px solid #444;padding:4px">Purpose</th>
-      <th style="border:1px solid #444;padding:4px">Start</th>
-      <th style="border:1px solid #444;padding:4px">End</th>
-      <th style="border:1px solid #444;padding:4px">Total</th>
-      <th style="border:1px solid #444;padding:4px">Net</th>
-      <th style="border:1px solid #444;padding:4px">Bill</th>
-    </tr></thead>`;
-    const body = document.createElement('tbody');
-    log.trips.forEach(trip => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td style="border:1px solid #444;padding:4px">${trip.date || ''}</td>
-        <td style="border:1px solid #444;padding:4px">${trip.plaza || ''}</td>
-        <td style="border:1px solid #444;padding:4px">${trip.from || ''}</td>
-        <td style="border:1px solid #444;padding:4px">${trip.to || ''}</td>
-        <td style="border:1px solid #444;padding:4px">${trip.purpose || ''}</td>
-        <td style="border:1px solid #444;padding:4px">${trip.start || 0}</td>
-        <td style="border:1px solid #444;padding:4px">${trip.end || 0}</td>
-        <td style="border:1px solid #444;padding:4px">${trip.total || 0}</td>
-        <td style="border:1px solid #444;padding:4px">${trip.net || 0}</td>
-        <td style="border:1px solid #444;padding:4px">${trip.bill || 0}</td>
-      `;
-      body.appendChild(row);
-    });
-    table.appendChild(body);
-    content.appendChild(table);
-    const spacer = document.createElement('div');
-    spacer.style.height = '18px';
-    content.appendChild(spacer);
-  });
-  document.body.appendChild(content);
-  const canvas = await html2canvas(content, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff' });
-  const imgData = canvas.toDataURL('image/png');
-  const pdf = new window.jspdf.jsPDF('l', 'pt', 'a4');
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = pdf.internal.pageSize.getHeight();
-  const imgWidth = canvas.width;
-  const imgHeight = canvas.height;
-  const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-  pdf.addImage(imgData, 'PNG', 0, 0, imgWidth * ratio, imgHeight * ratio);
-  pdf.save(filename);
-  document.body.removeChild(content);
-}
 
 function buildLogPayload(rate, totalBill, hasOpeningPhoto, hasClosingPhoto, openRot, closeRot) {
   return {
@@ -1530,14 +1365,16 @@ document.getElementById('rate').addEventListener('input', updateDashboard);
 
 const exportDrawer = document.getElementById('export-drawer');
 const exportDrawerToggle = document.getElementById('export-drawer-toggle');
-const exportFromInput = document.getElementById('filter-from');
-const exportToInput = document.getElementById('filter-to');
 const exportMonthInput = document.getElementById('filter-month');
 const exportStatus = document.getElementById('export-status');
 const exportResults = document.getElementById('export-results');
 let lastExportLogs = [];
-let lastExportFilterType = '';
+let lastExportFilterType = 'month';
 let lastExportFileLabel = '';
+
+// Default filter-month to current month
+const _now = new Date();
+exportMonthInput.value = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}`;
 
 function setExportDrawerOpen(open) {
   exportDrawer.classList.toggle('open', open);
@@ -1552,37 +1389,21 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') setExportDrawerOpen(false);
 });
 
-function getSelectedExportFilter() {
-  const monthValue = exportMonthInput.value;
-  const fromValue = exportFromInput.value;
-  const toValue = exportToInput.value;
+exportMonthInput.addEventListener('change', refreshExportResults);
 
-  if (monthValue) {
-    return { filterType: 'month', fileLabel: monthValue };
-  }
-  if (fromValue && toValue) {
-    return { filterType: 'range', fileLabel: `${fromValue}_to_${toValue}` };
-  }
-  return null;
+/* ── Aggregate all trips from all logs for a given month ── */
+function aggregateMonthTrips(logs) {
+  const tripMap = new Map(); // dateIso -> trip (keep unique dates, last saved wins)
+  logs.forEach(log => {
+    (log.trips || []).forEach(trip => {
+      if (trip.dateIso) {
+        const key = trip.dateIso + '|' + (trip.from || '') + '|' + (trip.to || '') + '|' + (trip.purpose || '');
+        tripMap.set(key, { ...trip, logId: log.id, empname: log.empname, regno: log.regno, model: log.model, rate: log.rate });
+      }
+    });
+  });
+  return Array.from(tripMap.values()).sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
 }
-
-function syncExportInputs() {
-  const monthSelected = !!exportMonthInput.value;
-  exportFromInput.disabled = monthSelected;
-  exportToInput.disabled = monthSelected;
-  if (monthSelected) {
-    exportFromInput.value = '';
-    exportToInput.value = '';
-  }
-}
-
-syncExportInputs();
-exportMonthInput.addEventListener('change', () => {
-  syncExportInputs();
-  refreshExportResults();
-});
-exportFromInput.addEventListener('change', refreshExportResults);
-exportToInput.addEventListener('change', refreshExportResults);
 
 function renderExportResults(logs) {
   if (!logs.length) {
@@ -1590,48 +1411,81 @@ function renderExportResults(logs) {
     return;
   }
 
-  const rows = logs.map(log => {
-    const tripCount = Array.isArray(log.trips) ? log.trips.length : 0;
-    const totalBill = log.totalBill !== undefined && log.totalBill !== null ? Number(log.totalBill) : 0;
-    const when = log.generatedIso ? new Date(log.generatedIso).toLocaleString() : '';
-    const model = log.model || '';
-    const regno = log.regno || '';
-    const name = log.empname || '';
-    const id = log.id || '';
-    return `
-      <tr>
-        <td style="border:1px solid #D0CEC8;padding:6px 8px;white-space:nowrap">${when}</td>
-        <td style="border:1px solid #D0CEC8;padding:6px 8px">${model}</td>
-        <td style="border:1px solid #D0CEC8;padding:6px 8px;white-space:nowrap">${regno}</td>
-        <td style="border:1px solid #D0CEC8;padding:6px 8px">${name}</td>
-        <td style="border:1px solid #D0CEC8;padding:6px 8px;text-align:center;white-space:nowrap">${tripCount}</td>
-        <td style="border:1px solid #D0CEC8;padding:6px 8px;text-align:right;white-space:nowrap">৳${totalBill.toFixed(2)}</td>
-        <td style="border:1px solid #D0CEC8;padding:6px 8px;text-align:right;white-space:nowrap">
-          <button class="btn btn-add" type="button" style="padding:6px 10px" onclick="viewSavedLog('${id}')">View</button>
-          <button class="btn btn-clear" type="button" style="padding:6px 10px" onclick="deleteSavedLog('${id}')">Delete</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
+  const allTrips = aggregateMonthTrips(logs);
+  const rate = allTrips.length > 0 ? (Number(allTrips[0].rate) || 8.50) : 8.50;
 
-  exportResults.innerHTML = `
+  let totalKM = 0, totalNet = 0, totalExcess = 0, totalBill = 0;
+  allTrips.forEach(t => {
+    totalKM     += Number(t.total)  || 0;
+    totalNet    += Number(t.net)    || 0;
+    totalExcess += Number(t.excess) || 0;
+    totalBill   += Number(t.bill)   || 0;
+  });
+
+  // Summary bar
+  const summary = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+      <div style="background:var(--orange-light);padding:10px 12px;border-radius:8px;">
+        <div style="font-size:10px;color:var(--gray-mid);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Total KM</div>
+        <div style="font-size:18px;font-weight:700;color:var(--orange);margin-top:2px">${totalKM.toFixed(2)}</div>
+      </div>
+      <div style="background:var(--orange-light);padding:10px 12px;border-radius:8px;">
+        <div style="font-size:10px;color:var(--gray-mid);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Official KM</div>
+        <div style="font-size:18px;font-weight:700;color:var(--orange);margin-top:2px">${totalNet.toFixed(2)}</div>
+      </div>
+      <div style="background:var(--orange-light);padding:10px 12px;border-radius:8px;">
+        <div style="font-size:10px;color:var(--gray-mid);font-weight:600;text-transform:uppercase;letter-spacing:.4px">ব্যতিগত KM</div>
+        <div style="font-size:18px;font-weight:700;color:var(--orange);margin-top:2px">${totalExcess.toFixed(2)}</div>
+      </div>
+      <div style="background:var(--orange-light);padding:10px 12px;border-radius:8px;">
+        <div style="font-size:10px;color:var(--gray-mid);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Total Bill</div>
+        <div style="font-size:18px;font-weight:700;color:var(--orange);margin-top:2px">৳${totalBill.toFixed(2)}</div>
+      </div>
+    </div>`;
+
+  // Trip rows table
+  const rows = allTrips.map((t, i) => `
+    <tr style="${i % 2 === 0 ? '' : 'background:#FAFAF8'}">
+      <td style="border:1px solid #D0CEC8;padding:5px 7px;white-space:nowrap">${t.date || t.dateIso || ''}</td>
+      <td style="border:1px solid #D0CEC8;padding:5px 7px">${t.plaza || ''}</td>
+      <td style="border:1px solid #D0CEC8;padding:5px 7px">${t.from || ''}</td>
+      <td style="border:1px solid #D0CEC8;padding:5px 7px">${t.to || ''}</td>
+      <td style="border:1px solid #D0CEC8;padding:5px 7px;color:var(--orange);font-weight:600">${t.purpose || ''}</td>
+      <td style="border:1px solid #D0CEC8;padding:5px 7px;text-align:right">${Number(t.start||0).toFixed(2)}</td>
+      <td style="border:1px solid #D0CEC8;padding:5px 7px;text-align:right">${Number(t.end||0).toFixed(2)}</td>
+      <td style="border:1px solid #D0CEC8;padding:5px 7px;text-align:right">${Number(t.total||0).toFixed(2)}</td>
+      <td style="border:1px solid #D0CEC8;padding:5px 7px;text-align:right;color:var(--gray-mid)">${Number(t.excess||0).toFixed(2)}</td>
+      <td style="border:1px solid #D0CEC8;padding:5px 7px;text-align:right;font-weight:700">৳${Number(t.bill||0).toFixed(2)}</td>
+    </tr>`).join('');
+
+  const totalRow = `
+    <tr style="background:#3A3A3A;color:#fff;font-weight:700;">
+      <td colspan="7" style="border:1px solid #555;padding:6px 8px;text-align:right">মাসিক মোট</td>
+      <td style="border:1px solid #555;padding:6px 8px;text-align:right">${totalKM.toFixed(2)}</td>
+      <td style="border:1px solid #555;padding:6px 8px;text-align:right">${totalExcess.toFixed(2)}</td>
+      <td style="border:1px solid #555;padding:6px 8px;text-align:right">৳${totalBill.toFixed(2)}</td>
+    </tr>`;
+
+  exportResults.innerHTML = summary + `
     <div style="overflow:auto;-webkit-overflow-scrolling:touch;">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:820px;background:#fff;border:1px solid #D0CEC8;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px;background:#fff;border:1px solid #D0CEC8;">
         <thead>
-          <tr style="background:#F5F5F2;color:#3A3A3A;">
-            <th style="border:1px solid #D0CEC8;padding:6px 8px;text-align:left;white-space:nowrap">Generated</th>
-            <th style="border:1px solid #D0CEC8;padding:6px 8px;text-align:left;">Model</th>
-            <th style="border:1px solid #D0CEC8;padding:6px 8px;text-align:left;white-space:nowrap">Reg No</th>
-            <th style="border:1px solid #D0CEC8;padding:6px 8px;text-align:left;">Name</th>
-            <th style="border:1px solid #D0CEC8;padding:6px 8px;text-align:center;white-space:nowrap">Trips</th>
-            <th style="border:1px solid #D0CEC8;padding:6px 8px;text-align:right;white-space:nowrap">Total Bill</th>
-            <th style="border:1px solid #D0CEC8;padding:6px 8px;text-align:right;white-space:nowrap">Action</th>
+          <tr style="background:var(--orange);color:#fff;">
+            <th style="border:1px solid #c0400a;padding:6px 7px;text-align:left;white-space:nowrap">তারিখ</th>
+            <th style="border:1px solid #c0400a;padding:6px 7px;text-align:left">প্লাজা</th>
+            <th style="border:1px solid #c0400a;padding:6px 7px;text-align:left">হইতে</th>
+            <th style="border:1px solid #c0400a;padding:6px 7px;text-align:left">গন্তব্য</th>
+            <th style="border:1px solid #c0400a;padding:6px 7px;text-align:left">কারণ</th>
+            <th style="border:1px solid #c0400a;padding:6px 7px;text-align:right">শুরু KM</th>
+            <th style="border:1px solid #c0400a;padding:6px 7px;text-align:right">শেষ KM</th>
+            <th style="border:1px solid #c0400a;padding:6px 7px;text-align:right">মোট KM</th>
+            <th style="border:1px solid #c0400a;padding:6px 7px;text-align:right">ব্যতিগত</th>
+            <th style="border:1px solid #c0400a;padding:6px 7px;text-align:right">বিল</th>
           </tr>
         </thead>
-        <tbody>${rows}</tbody>
+        <tbody>${rows}${totalRow}</tbody>
       </table>
-    </div>
-  `;
+    </div>`;
 }
 
 async function refreshExportResults() {
@@ -1640,35 +1494,32 @@ async function refreshExportResults() {
     exportStatus.textContent = 'Please sign in with Google to view saved logs.';
     exportResults.innerHTML = '';
     lastExportLogs = [];
-    lastExportFilterType = '';
-    lastExportFileLabel = '';
     return;
   }
 
-  const selected = getSelectedExportFilter();
-  if (!selected) {
-    exportStatus.textContent = 'Select Month or select From/To date range.';
+  const monthValue = exportMonthInput.value;
+  if (!monthValue) {
+    exportStatus.textContent = 'Please select a month.';
     exportResults.innerHTML = '';
     lastExportLogs = [];
-    lastExportFilterType = '';
-    lastExportFileLabel = '';
     return;
   }
 
-  exportStatus.textContent = 'Loading...';
+  exportStatus.textContent = '⏳ Loading...';
   exportResults.innerHTML = '';
 
-  const logs = await querySavedLogs(selected.filterType);
+  const logs = await querySavedLogs('month');
   lastExportLogs = logs;
-  lastExportFilterType = selected.filterType;
-  lastExportFileLabel = selected.fileLabel;
+  lastExportFilterType = 'month';
+  lastExportFileLabel = monthValue;
 
   if (!logs.length) {
-    exportStatus.textContent = 'No saved logs found for this filter.';
+    exportStatus.textContent = 'No saved logs found for this month.';
     return;
   }
 
-  exportStatus.textContent = `${logs.length} saved log(s) found.`;
+  const allTrips = aggregateMonthTrips(logs);
+  exportStatus.textContent = `✅ ${allTrips.length} trip(s) found across ${logs.length} saved log(s).`;
   renderExportResults(logs);
 }
 
@@ -1679,18 +1530,72 @@ async function exportCurrentLogs(outputType) {
   if (!lastExportLogs.length) {
     await refreshExportResults();
   }
-
-  if (!lastExportLogs.length || !lastExportFilterType) {
-    alert('No saved logs found for this filter.');
+  if (!lastExportLogs.length) {
+    alert('No saved logs found. Select a month and click View Data first.');
     return;
   }
 
-  const filename = `motorcycle_logs_${lastExportFilterType}_${lastExportFileLabel}.${outputType === 'excel' ? 'xlsx' : 'pdf'}`;
-  if (outputType === 'excel') {
-    downloadLogsExcel(lastExportLogs, filename);
-  } else {
-    await downloadLogsPdf(lastExportLogs, filename, lastExportFilterType);
-  }
+  const filename = `motorcycle_logs_${lastExportFileLabel}.xlsx`;
+  downloadLogsExcel(lastExportLogs, filename);
+}
+
+/* ── Month-wise Excel download (all trips in month) ── */
+function downloadLogsExcel(logs, filename) {
+  const allTrips = aggregateMonthTrips(logs);
+  const log0 = logs[0] || {};
+  const model   = log0.model   || '';
+  const engine  = log0.engine  || '';
+  const regno   = log0.regno   || '';
+  const empname = log0.empname || '';
+  const desig   = log0.desig   || '';
+  const dept    = log0.dept    || '';
+  const rate    = Number(log0.rate) || 8.50;
+
+  const aoa = [];
+
+  /* Title */
+  aoa.push(['দৈনিক মেটর সাইকেল চলাচল ও জ্বালানি খরচ হিসেবের (লগ বই)', '', '', '', '', '', '', '', '', '']);
+  /* Meta */
+  aoa.push(['মডেল :', model, '', 'ইঞ্জিন নং :', engine, '', '', 'মোটর সাইকেল রেজিঃ নং :', regno, '']);
+  aoa.push(['Name:', empname, '', 'Designation:', desig, '', '', 'Dept:', dept, '']);
+  /* Column headers */
+  aoa.push(['তারিখ', 'প্লাজার নাম', 'হইতে', 'গন্তব্য', 'কারণ', 'শুরুর KM', 'শেষের KM', 'মোট KM', 'ব্যতিগত KM', `বিল (${rate}/KM)`]);
+
+  let totalKM = 0, totalNet = 0, totalExcess = 0, totalBill = 0;
+  allTrips.forEach(trip => {
+    const start  = Number(trip.start)  || 0;
+    const end    = Number(trip.end)    || 0;
+    const excess = Number(trip.excess) || 0;
+    const total  = Number(trip.total)  || Math.max(0, end - start);
+    const net    = Number(trip.net)    || Math.max(0, total - excess);
+    const bill   = Number(trip.bill)   || +(net * rate).toFixed(2);
+    totalKM     += total;
+    totalNet    += net;
+    totalExcess += excess;
+    totalBill   += bill;
+    aoa.push([trip.date || trip.dateIso || '', trip.plaza || '', trip.from || '', trip.to || '', trip.purpose || '', start, end, total, excess, bill]);
+  });
+
+  /* Total row */
+  aoa.push(['মাসিক মোট', '', '', '', '', '', '', totalKM, totalExcess, totalBill]);
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  /* Merge title row A1:J1 */
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+    { s: { r: aoa.length - 1, c: 0 }, e: { r: aoa.length - 1, c: 6 } }
+  ];
+
+  /* Column widths */
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 30 },
+    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 16 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Monthly Log');
+  XLSX.writeFile(wb, filename);
 }
 
 function renderSavedLogHtml(log) {
