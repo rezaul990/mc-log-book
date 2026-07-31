@@ -294,8 +294,10 @@ body {
   background: #fff;
   border-radius: 14px 14px 0 0;
   box-shadow: 0 -6px 22px rgba(0,0,0,0.18);
-  overflow: hidden;
   border: 1px solid rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
 }
 #export-drawer-toggle {
   width: 100%;
@@ -312,6 +314,8 @@ body {
   justify-content: space-between;
   gap: 10px;
   cursor: pointer;
+  border-radius: 14px 14px 0 0;
+  flex-shrink: 0;
 }
 #export-drawer-toggle:focus { outline: none; box-shadow: 0 0 0 3px rgba(232,80,10,.18) inset; }
 #export-drawer-toggle .drawer-title { display: inline-flex; align-items: center; gap: 8px; }
@@ -321,11 +325,14 @@ body {
   max-height: 0;
   overflow: hidden;
   padding: 0 18px;
-  transition: max-height .25s ease, padding .2s ease;
+  transition: max-height .3s ease, padding .2s ease;
 }
 #export-drawer.open .drawer-content {
-  max-height: 520px;
+  max-height: calc(85vh - 46px);
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 18px;
+  -webkit-overflow-scrolling: touch;
 }
 
 #preview-section { display: none; margin-top: 24px; }
