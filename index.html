@@ -510,6 +510,8 @@ body {
             <div style="font-size: 18px; font-weight: 700; color: var(--gray-dark); margin-top: 4px;" id="stats-avg-km">0.00</div>
           </div>
         </div>
+        <!-- Date-wise breakdown -->
+        <div id="date-wise-breakdown" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);"></div>
       </div>
     </div>
 
@@ -816,16 +818,22 @@ async function loadUserData(uid) {
 async function loadDashboardFromFirebase(uid) {
   try {
     const currentDate = new Date();
-    const currentMonth = currentDate.getMonth();
+    const currentMonth = currentDate.getMonth();   // 0-indexed
     const currentYear = currentDate.getFullYear();
-    
-    const startDate = new Date(currentYear, currentMonth, 1);
-    const endDate = new Date(currentYear, currentMonth + 1, 1);
-    
+
+    // Target month as "YYYY-MM" prefix for dateIso comparison (trip date, not save date)
+    const targetYM = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+
+    // Fetch logs saved within a ±35-day window around the target month so that
+    // logs saved a day or two late (e.g. Sept 1 log with Aug 31 trips) are included.
+    // Filtering by actual trip dateIso is done in JS below.
+    const windowStart = new Date(currentYear, currentMonth - 1, 25); // ~35 days before month start
+    const windowEnd   = new Date(currentYear, currentMonth + 1, 6);  // ~5 days after month end
+
     const query = db.collection('users').doc(uid).collection('logs')
-      .where('generatedAt', '>=', firebase.firestore.Timestamp.fromDate(startDate))
-      .where('generatedAt', '<', firebase.firestore.Timestamp.fromDate(endDate));
-    
+      .where('generatedAt', '>=', firebase.firestore.Timestamp.fromDate(windowStart))
+      .where('generatedAt', '<',  firebase.firestore.Timestamp.fromDate(windowEnd));
+
     const snapshot = await query.get();
     
     // Deduplicate trips by a unique key (date + from + to + purpose)
@@ -839,6 +847,8 @@ async function loadDashboardFromFirebase(uid) {
       
       trips.forEach(trip => {
         if (!trip.dateIso) return;
+        // Only include trips whose date falls in the current month
+        if (!trip.dateIso.startsWith(targetYM)) return;
         // Key: date + from + to + purpose identifies a unique trip
         const key = `${trip.dateIso}|${(trip.from||'').trim()}|${(trip.to||'').trim()}|${(trip.purpose||'').trim()}`;
         const existing = tripMap.get(key);
@@ -856,6 +866,9 @@ async function loadDashboardFromFirebase(uid) {
     let daysSet = new Set();
     let tripCount = 0;
     
+    // Group trips by date for date-wise breakdown
+    const dateWiseData = new Map();
+    
     tripMap.forEach(trip => {
       const total  = Number(trip.total)  || 0;
       const excess = Number(trip.excess) || 0;
@@ -868,6 +881,25 @@ async function loadDashboardFromFirebase(uid) {
       personalKM += excess;
       totalBill  += bill;
       tripCount++;
+      
+      // Add to date-wise grouping
+      const dateKey = trip.dateIso;
+      if (!dateWiseData.has(dateKey)) {
+        dateWiseData.set(dateKey, {
+          dateIso: dateKey,
+          totalKM: 0,
+          officialKM: 0,
+          personalKM: 0,
+          bill: 0,
+          trips: []
+        });
+      }
+      const dateData = dateWiseData.get(dateKey);
+      dateData.totalKM += total;
+      dateData.officialKM += net;
+      dateData.personalKM += excess;
+      dateData.bill += bill;
+      dateData.trips.push(trip);
     });
     
     const daysCount = daysSet.size;
@@ -886,9 +918,67 @@ async function loadDashboardFromFirebase(uid) {
     document.getElementById('stats-trips-count').textContent   = tripCount;
     document.getElementById('stats-avg-tk').textContent        = daysCount > 0 ? (totalBill / daysCount).toFixed(2) : '0.00';
     
+    // Render date-wise breakdown
+    renderDateWiseBreakdown(dateWiseData);
+    
   } catch (err) {
     console.error('Load dashboard data failed', err);
   }
+}
+
+function renderDateWiseBreakdown(dateWiseData) {
+  const container = document.getElementById('date-wise-breakdown');
+  if (!container) return;
+  
+  if (dateWiseData.size === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--gray-mid);text-align:center;padding:10px;">No trips recorded this month</div>';
+    return;
+  }
+  
+  // Sort dates in descending order (most recent first)
+  const sortedDates = Array.from(dateWiseData.values()).sort((a, b) => b.dateIso.localeCompare(a.dateIso));
+  
+  let html = `
+    <div style="font-size:12px;font-weight:700;color:var(--gray-dark);margin-bottom:10px;">📅 তারিখ অনুযায়ী বিবরণ (${sortedDates.length} দিন)</div>
+    <div style="max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="background:var(--gray-dark);color:#fff;position:sticky;top:0;">
+            <th style="border:1px solid #555;padding:6px 8px;text-align:left;">তারিখ</th>
+            <th style="border:1px solid #555;padding:6px 8px;text-align:center;">ট্রিপ</th>
+            <th style="border:1px solid #555;padding:6px 8px;text-align:right;">মোট KM</th>
+            <th style="border:1px solid #555;padding:6px 8px;text-align:right;">অফিসিয়াল</th>
+            <th style="border:1px solid #555;padding:6px 8px;text-align:right;">ব্যতিগত</th>
+            <th style="border:1px solid #555;padding:6px 8px;text-align:right;">বিল</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  sortedDates.forEach((dateData, index) => {
+    const dateText = dateIsoToDdMmYy(dateData.dateIso);
+    const tripCount = dateData.trips.length;
+    const bgStyle = index % 2 === 0 ? '' : 'background:#FAFAF8;';
+    
+    html += `
+      <tr style="${bgStyle}">
+        <td style="border:1px solid var(--border);padding:6px 8px;font-weight:600;">${dateText}</td>
+        <td style="border:1px solid var(--border);padding:6px 8px;text-align:center;">${tripCount}</td>
+        <td style="border:1px solid var(--border);padding:6px 8px;text-align:right;font-weight:600;color:var(--orange);">${dateData.totalKM.toFixed(2)}</td>
+        <td style="border:1px solid var(--border);padding:6px 8px;text-align:right;">${dateData.officialKM.toFixed(2)}</td>
+        <td style="border:1px solid var(--border);padding:6px 8px;text-align:right;">${dateData.personalKM.toFixed(2)}</td>
+        <td style="border:1px solid var(--border);padding:6px 8px;text-align:right;font-weight:600;">৳${dateData.bill.toFixed(2)}</td>
+      </tr>
+    `;
+  });
+  
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+  
+  container.innerHTML = html;
 }
 
 function parseLegacyDdMmYy(text) {
@@ -982,22 +1072,39 @@ async function exportLogs(filterType, outputType) {
 async function querySavedLogs(filterType) {
   const user = auth.currentUser;
   if (!user) return [];
-  let query = db.collection('users').doc(user.uid).collection('logs').orderBy('generatedAt', 'desc');
   const monthValue = document.getElementById('filter-month').value;
   const toTimestamp = date => firebase.firestore.Timestamp.fromDate(date);
 
-  if (monthValue) {
-    const [year, month] = monthValue.split('-').map(Number);
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 1);
-    query = query.where('generatedAt', '>=', toTimestamp(start)).where('generatedAt', '<', toTimestamp(end));
-  } else {
+  if (!monthValue) {
     alert('Please select a month.');
     return [];
   }
 
+  const [year, month] = monthValue.split('-').map(Number);
+  // Target month prefix for trip dateIso filtering
+  const targetYM = `${year}-${String(month).padStart(2, '0')}`;
+
+  // Fetch logs saved within a ±35-day window so that logs saved
+  // a few days after month-end (e.g. Sept 1 log with Aug trips) are included.
+  const windowStart = new Date(year, month - 2, 25); // ~35 days before month start
+  const windowEnd   = new Date(year, month,     6);  // ~5 days after month end
+
+  let query = db.collection('users').doc(user.uid).collection('logs')
+    .where('generatedAt', '>=', toTimestamp(windowStart))
+    .where('generatedAt', '<',  toTimestamp(windowEnd))
+    .orderBy('generatedAt', 'desc');
+
   const snapshot = await query.get();
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  // Only return logs that actually contain at least one trip in the target month
+  const logs = snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter(log => {
+      const trips = log.trips || [];
+      return trips.some(t => t.dateIso && t.dateIso.startsWith(targetYM));
+    });
+
+  return logs;
 }
 
 
@@ -1344,6 +1451,9 @@ function updateDashboard() {
   let daysSet = new Set();
   let tripCount = 0;
   
+  // Group trips by date for date-wise breakdown
+  const dateWiseData = new Map();
+  
   trips.forEach(trip => {
     if (trip.dateIso) {
       const tripDate = new Date(trip.dateIso + 'T00:00:00');
@@ -1351,12 +1461,33 @@ function updateDashboard() {
         daysSet.add(trip.dateIso);
         const officialTrip = Math.max(0, trip.net || 0);
         const personalTrip = Math.max(0, trip.excess || 0);
+        const tripTotal = trip.total || 0;
+        const tripBill = trip.bill || 0;
         
-        totalKM += trip.total || 0;
+        totalKM += tripTotal;
         officialKM += officialTrip;
         personalKM += personalTrip;
-        totalBill += trip.bill || 0;
+        totalBill += tripBill;
         tripCount++;
+        
+        // Add to date-wise grouping
+        const dateKey = trip.dateIso;
+        if (!dateWiseData.has(dateKey)) {
+          dateWiseData.set(dateKey, {
+            dateIso: dateKey,
+            totalKM: 0,
+            officialKM: 0,
+            personalKM: 0,
+            bill: 0,
+            trips: []
+          });
+        }
+        const dateData = dateWiseData.get(dateKey);
+        dateData.totalKM += tripTotal;
+        dateData.officialKM += officialTrip;
+        dateData.personalKM += personalTrip;
+        dateData.bill += tripBill;
+        dateData.trips.push(trip);
       }
     }
   });
@@ -1375,6 +1506,9 @@ function updateDashboard() {
   document.getElementById('stats-rate-km').textContent       = rate.toFixed(2);
   document.getElementById('stats-trips-count').textContent   = tripCount;
   document.getElementById('stats-avg-tk').textContent        = daysCount > 0 ? (totalBill / daysCount).toFixed(2) : '0.00';
+  
+  // Render date-wise breakdown for current form entries
+  renderDateWiseBreakdown(dateWiseData);
 }
 
 /* ── Save as image ── */
@@ -1449,12 +1583,20 @@ document.addEventListener('keydown', e => {
 exportMonthInput.addEventListener('change', refreshExportResults);
 
 /* ── Aggregate all trips from all logs for a given month (deduplicated) ── */
-function aggregateMonthTrips(logs) {
+function aggregateMonthTrips(logs, targetYM) {
+  // targetYM: "YYYY-MM" string. If omitted, derive from the export month picker.
+  if (!targetYM) {
+    const mv = document.getElementById('filter-month').value;
+    targetYM = mv || null;
+  }
+
   const tripMap = new Map();
   logs.forEach(log => {
     const savedAt = log.generatedAt ? log.generatedAt.toMillis() : 0;
     (log.trips || []).forEach(trip => {
       if (!trip.dateIso) return;
+      // Filter to only trips whose date belongs to the target month
+      if (targetYM && !trip.dateIso.startsWith(targetYM)) return;
       const key = `${trip.dateIso}|${(trip.from||'').trim()}|${(trip.to||'').trim()}|${(trip.purpose||'').trim()}`;
       const existing = tripMap.get(key);
       if (!existing || savedAt > existing._savedAt) {
@@ -1472,7 +1614,9 @@ function renderExportResults(logs) {
     return;
   }
 
-  const allTrips = aggregateMonthTrips(logs);
+  const mv = exportMonthInput.value;
+  const targetYM = mv || null;
+  const allTrips = aggregateMonthTrips(logs, targetYM);
   const rate = allTrips.length > 0 ? (Number(allTrips[0].rate) || 8.50) : 8.50;
 
   let totalKM = 0, totalNet = 0, totalExcess = 0, totalBill = 0;
@@ -1571,7 +1715,7 @@ async function refreshExportResults() {
     return;
   }
 
-  const allTrips = aggregateMonthTrips(logs);
+  const allTrips = aggregateMonthTrips(logs, monthValue);
   exportStatus.textContent = `✅ ${allTrips.length} trip(s) found across ${logs.length} saved log(s).`;
   renderExportResults(logs);
 }
@@ -1594,7 +1738,8 @@ async function exportCurrentLogs(outputType) {
 
 /* ── Month-wise Excel download (all trips in month) ── */
 function downloadLogsExcel(logs, filename) {
-  const allTrips = aggregateMonthTrips(logs);
+  const mv = exportMonthInput.value || lastExportFileLabel || null;
+  const allTrips = aggregateMonthTrips(logs, mv);
   const log0 = logs[0] || {};
   const model   = log0.model   || '';
   const engine  = log0.engine  || '';
